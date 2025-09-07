@@ -1,0 +1,34 @@
+name: Build data JSON
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'data/items.csv'
+      - 'scripts/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build items.json
+        run: |
+          python scripts/build_json.py
+
+      - name: Commit & push generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/items.json data/items.sorted.csv || true
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: rebuild items.json"
+            git push
+          fi
