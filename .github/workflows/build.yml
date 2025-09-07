@@ -9,13 +9,23 @@ on:
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
+# <<< IMPORTANT: allow this workflow to push commits >>>
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # keep credentials so that "git push" uses GITHUB_TOKEN
+          persist-credentials: true
+          fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -23,12 +33,20 @@ jobs:
         run: |
           python scripts/build_json.py
 
-      - name: Commit & push generated files
+      - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Explicitly set tokenized remote URL (robust against some org settings)
+      - name: Set authenticated remote
+        run: |
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/meowoooootrade/spinecho.git
+
+      - name: Commit & push generated files
+        run: |
           git add data/items.json data/items.sorted.csv || true
           if ! git diff --cached --quiet; then
             git commit -m "chore: rebuild items.json"
-            git push
+            git push origin HEAD:main
           fi
