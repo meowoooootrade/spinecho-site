@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - "data/items.csv"          # Rebuild when the source CSV changes
-      - "scripts/build_items.py"  # Rebuild when the builder script changes
+      - "scripts/build_json.py"  # Rebuild when the builder script changes
   workflow_dispatch:              # Manual run
 
 # Required for PR creation using GITHUB_TOKEN
@@ -37,7 +37,7 @@ jobs:
       # Build JSON, manifest, indexes, and sorted CSV
       - name: Build JSON & indexes
         run: |
-          python scripts/build_items.py
+          python scripts/build_json.py
 
       # Create or update a pull request with generated artifacts
       - name: Create Pull Request
