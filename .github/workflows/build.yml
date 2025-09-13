@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - "data/items.csv"
-      - "tools/build_items.py"
+      - "scripts/build_items.py"
   workflow_dispatch:
 
 # Needed for PR creation with GITHUB_TOKEN
