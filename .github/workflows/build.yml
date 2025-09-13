@@ -26,7 +26,7 @@ jobs:
 
       - name: Build JSON & indexes
         run: |
-          python tools/build_items.py
+          python scripts/build_items.py
 
       # Create a PR with the generated artifacts
       - name: Create Pull Request
