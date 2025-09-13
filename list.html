@@ -114,13 +114,8 @@
 
           // title
           const h = document.createElement('h3'); h.className = 'title';
-          if (it.url) {
-            const a = document.createElement('a'); a.href = it.url; a.target = '_blank'; a.rel = 'noopener';
-            a.textContent = it.title || '(no title)'; h.appendChild(a);
-          } else {
-            h.textContent = it.title || '(no title)';
-          }
-
+          h.textContent = it.title || '(no title)';
+  
           // production (top row)
           if (it.production) {
             const metaTop = document.createElement('div'); metaTop.className = 'meta';
@@ -137,11 +132,8 @@
           // chips: link / format / tags[]
           const chips = document.createElement('div'); chips.className = 'tags';
           if (it.url){
-            const linkChip = document.createElement('a');
-            linkChip.className = 'tag tag--link';
-            linkChip.href = it.url; linkChip.target = '_blank'; linkChip.rel = 'noopener';
-            linkChip.textContent = 'link';
-            chips.appendChild(linkChip);
+            const u = document.createElement('span'); u.className = 'tag';
+            u.textContent = it.url; chips.appendChild(u);
           }
           if (it.format){
             const f = document.createElement('span'); f.className = 'tag';
@@ -235,6 +227,7 @@
         it.category,
         it.format,
         (it.tags || []).join(" "),
+        it.url || "",
         it.notes,
         it.cast,
         rawDate,       // e.g. 2025-09-00
