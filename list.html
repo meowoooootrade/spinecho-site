@@ -1,147 +1,289 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Spin Echo — List</title>
+
+  <!-- Early theme apply to prevent flash -->
+  <script>
+    (function () {
+      try {
+        const stored = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const mode = stored || (prefersDark ? "dark" : "light");
+        document.documentElement.dataset.theme = mode;
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (!m) { m = document.createElement("meta"); m.name = "theme-color"; document.head.appendChild(m); }
+        m.content = mode === "dark" ? "#1a2233" : "#f5fbfb";
+      } catch (_) {}
+    })();
+  </script>
+
   <link rel="stylesheet" href="assets/css/site.css" />
+  <meta name="color-scheme" content="light dark" />
 </head>
 <body>
   <header class="header">
-    <button class="menu-btn" data-menu aria-label="Menu">☰</button>
+    <button class="menu-btn" data-menu aria-label="Menu" aria-controls="sidebar" aria-expanded="false">☰</button>
     <div>Spin Echo</div>
     <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme" title="Toggle theme">🌙</button>
   </header>
 
   <div class="shell">
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar" role="navigation" aria-label="Primary" aria-hidden="true">
       <h2 class="brand">Spin Echo</h2>
       <p class="status">States: Open (Reply will be delayed due to work)</p>
       <nav class="nav">
-        <a href="./list.html">LIST</a>
+        <a href="./index.html">TOP</a>
+        <a href="./list.html" aria-current="page">LIST</a>
         <a href="./wants.html">WANTS</a>
         <a href="./contact.html">CONTACT</a>
       </nav>
     </aside>
 
-    <main class="main" style="padding:24px">
-      <h1 style="margin:0 0 8px">List</h1>
+    <main class="main">
+      <h1>List</h1>
       <div class="controls">
-        <input id="q" placeholder="Search (title, tags, category, notes)" />
+        <input id="q" placeholder="Search (title, tags, category, notes, cast)" aria-label="Search" />
         <select id="sort" aria-label="Sort">
-          <option value="date_desc">Date ↓ (default)</option>
-          <option value="date_asc">Date ↑</option>
-          <option value="title_asc">Title A→Z</option>
+          <option value="title_asc" selected>Title A→Z (default)</option>
           <option value="title_desc">Title Z→A</option>
+          <option value="date_asc">Date old → new</option>
+          <option value="date_desc">Date new → old</option>
         </select>
         <select id="category" aria-label="Category filter">
           <option value="">All categories</option>
         </select>
-        <button id="clear" type="button">Clear</button>
+        <button id="clear" type="button" aria-label="Clear filters">Clear</button>
       </div>
-      <div id="list" class="grid"></div>
+      <div id="list" class="grid" aria-live="polite"></div>
     </main>
   </div>
 
   <script>
-    // === same client-side list logic (English comments) ===
+    // ---- utilities ----
     const state = { items: [], filtered: [] };
     const lower = s => (s || "").toString().toLowerCase();
-    const cmpStr = (a,b) => a.localeCompare(b, 'en');
+    const cmpStr = (a,b) => (a||"").localeCompare(b||"", 'en');
+
+    // Debounce utility
+    const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
+
+    // Format partial ISO date strings into human-friendly English
+    function formatNiceDate(iso){
+      if (!iso) return "";
+      const parts = iso.split("-");
+      const y = parts[0] || "";
+      const m = parts[1] || "00";
+      const d = parts[2] || "00";
+      if (m === "00") return y;
+      if (d === "00") {
+        const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        const mi = parseInt(m,10)-1;
+        return (mi>=0 && mi<12) ? `${monthNames[mi]}, ${y}` : y;
+      }
+      const obj = new Date(`${y}-${m}-${d}`);
+      return isNaN(obj) ? iso : obj.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
+    }
+
+    // Sorting that keeps date as ISO-like string (DESC/ASC)
     function applySort(items, mode) {
       const a = items.slice();
-      if (mode === 'date_desc') a.sort((x,y)=>(y.date||'').localeCompare(x.date||'')||cmpStr(x.title||'',y.title||''));
-      else if (mode === 'date_asc') a.sort((x,y)=>(x.date||'').localeCompare(y.date||'')||cmpStr(x.title||'',y.title||''));
-      else if (mode === 'title_asc') a.sort((x,y)=>cmpStr(x.title||'',y.title||''));
-      else if (mode === 'title_desc') a.sort((x,y)=>cmpStr(y.title||'',x.title||''));
+      const cmpTitleAsc  = (x,y) => cmpStr(x.title || '', y.title || '');
+      const cmpTitleDesc = (x,y) => cmpStr(y.title || '', x.title || '');
+      const cmpDateAsc   = (x,y) => (x.date || '').localeCompare(y.date || '');
+      const cmpDateDesc  = (x,y) => (y.date || '').localeCompare(x.date || '');
+
+      if (mode === 'title_asc')  a.sort((x,y) => cmpTitleAsc(x,y)  || cmpDateAsc(x,y));
+      else if (mode === 'title_desc') a.sort((x,y) => cmpTitleDesc(x,y) || cmpDateAsc(x,y));
+      else if (mode === 'date_desc')  a.sort((x,y) => cmpDateDesc(x,y)  || cmpTitleAsc(x,y));
+      else if (mode === 'date_asc')   a.sort((x,y) => cmpDateAsc(x,y)   || cmpTitleAsc(x,y));
       return a;
     }
+
+    // Render cards in chunks to keep UI snappy
     function render(items){
-      const root=document.getElementById('list'); root.innerHTML='';
-      items.forEach(it=>{
-        const card=document.createElement('div'); card.className='card';
-        const h=document.createElement('h3'); h.className='title';
-        if(it.url){ const a=document.createElement('a'); a.href=it.url; a.target='_blank'; a.rel='noopener'; a.textContent=it.title||'(no title)'; h.appendChild(a); }
-        else { h.textContent=it.title||'(no title)'; }
+      const root = document.getElementById('list');
+      root.innerHTML = '';
 
-      const meta = document.createElement('div');
-      meta.className = 'meta';
+      const paint = (chunk) => {
+        const frag = document.createDocumentFragment();
+        chunk.forEach(it=>{
+          const card = document.createElement('div'); card.className = 'card';
 
-      let niceDate = "";
-      if (it.date) {
-        const parts = it.date.split("-"); // ["2025","01","00"] など
-        const y = parts[0];
-        const m = parts[1] || "00";
-        const d = parts[2] || "00";
-
-        if (m === "00") {
-          // 年だけ
-          niceDate = y;
-        } else if (d === "00") {
-          // 月まで
-          // 月番号→名前
-          const monthNames = [
-            "January","February","March","April","May","June",
-            "July","August","September","October","November","December"
-          ];
-          const mi = parseInt(m,10)-1;
-          if (mi>=0 && mi<12) {
-            niceDate = `${monthNames[mi]}, ${y}`;
+          // title
+          const h = document.createElement('h3'); h.className = 'title';
+          if (it.url) {
+            const a = document.createElement('a'); a.href = it.url; a.target = '_blank'; a.rel = 'noopener';
+            a.textContent = it.title || '(no title)'; h.appendChild(a);
           } else {
-            niceDate = `${y}`; // 万一無効なら年だけ
+            h.textContent = it.title || '(no title)';
           }
-        } else {
-          // 通常の日付
-          const dObj = new Date(`${y}-${m}-${d}`);
-          if (!isNaN(dObj)) {
-            niceDate = dObj.toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric"
-            });
-          } else {
-            niceDate = it.date; // fallback
+
+          // production (top row)
+          if (it.production) {
+            const metaTop = document.createElement('div'); metaTop.className = 'meta';
+            metaTop.textContent = it.production;
+            card.appendChild(metaTop);
           }
-        }
+
+          // date + master (same line)
+          const meta = document.createElement('div'); meta.className = 'meta';
+          const niceDate = it.niceDate || formatNiceDate(it.date);
+          const rightBits = [niceDate, it.master].filter(Boolean).join(' · ');
+          if (rightBits) meta.textContent = rightBits;
+
+          // chips: link / format / tags[]
+          const chips = document.createElement('div'); chips.className = 'tags';
+          if (it.url){
+            const linkChip = document.createElement('a');
+            linkChip.className = 'tag tag--link';
+            linkChip.href = it.url; linkChip.target = '_blank'; linkChip.rel = 'noopener';
+            linkChip.textContent = 'link';
+            chips.appendChild(linkChip);
+          }
+          if (it.format){
+            const f = document.createElement('span'); f.className = 'tag';
+            f.textContent = it.format; chips.appendChild(f);
+          }
+          (it.tags || []).forEach(t => {
+            const s = document.createElement('span'); s.className = 'tag';
+            s.textContent = t; chips.appendChild(s);
+          });
+
+          // cast (below chips)
+          if (it.cast) {
+            const cast = document.createElement('div'); cast.className = 'desc';
+            cast.textContent = it.cast; chips.after;
+            card.appendChild(chips);
+            card.appendChild(cast);
+          } else if (chips.children.length) {
+            card.appendChild(chips);
+          }
+
+          // notes (below cast)
+          if (it.notes) {
+            const notes = document.createElement('div'); notes.className = 'desc';
+            notes.textContent = it.notes; card.appendChild(notes);
+          }
+
+          // ensure title and meta are at the top
+          card.insertBefore(h, card.firstChild);
+          if (rightBits) card.insertBefore(meta, (card.children[1] || null));
+
+          frag.appendChild(card);
+        });
+        root.appendChild(frag);
+      };
+
+      // progressive paint
+      const chunkSize = 40;
+      if (items.length <= chunkSize) {
+        paint(items);
+      } else {
+        paint(items.slice(0, chunkSize));
+        const rest = items.slice(chunkSize);
+        (window.requestIdleCallback || window.requestAnimationFrame)(() => paint(rest));
       }
-
-        meta.textContent = [niceDate, it.category].filter(Boolean).join(" · ");
-
-        const tags=document.createElement('div'); tags.className='tags';
-        (it.tags||[]).forEach(t=>{ const s=document.createElement('span'); s.className='tag'; s.textContent=t; tags.appendChild(s); });
-        const notes=document.createElement('div'); notes.textContent=it.notes||'';
-        card.append(h,meta); if((it.tags||[]).length) card.appendChild(tags); if(it.notes) card.appendChild(notes);
-        root.appendChild(card);
-      });
     }
+
     function filterAndRender(){
-      const q=lower(document.getElementById('q').value);
-      const cat=document.getElementById('category').value;
-      const sort=document.getElementById('sort').value;
-      let arr=state.items.filter(it=>{
-        if(cat && (it.category||'')!==cat) return false;
-        if(!q) return true;
-        const hay=[it.title,it.category,(it.tags||[]).join(' '),it.notes].map(lower).join(' ');
-        return hay.includes(q);
+      const q    = document.getElementById('q').value;
+      const terms = tokenize(q);                   // <-- multiple terms / phrases
+      const cat  = document.getElementById('category').value;
+      const sort = document.getElementById('sort').value;
+
+      let arr = state.items.filter(it=>{
+        if (cat && (it.category || '') !== cat) return false;
+        if (!terms.length) return true;
+
+        // cache the haystack on first use
+        if (!it._hay) it._hay = buildSearchText(it);
+        const hay = it._hay;
+
+        // AND: all terms must appear (case-insensitive, substring match)
+        return terms.every(t => hay.includes(t));
       });
-      arr=applySort(arr,sort); state.filtered=arr; render(arr);
+
+      arr = applySort(arr, sort);
+      state.filtered = arr;
+      render(arr);
     }
+
+    // add: tokenize query into words and phrases (quoted)
+    function tokenize(q){
+      if (!q) return [];
+      const out = [];
+      const re = /"([^"]+)"|(\S+)/g;
+      let m;
+      while ((m = re.exec(q))) out.push((m[1] || m[2]).toLowerCase());
+      return out;
+    }
+
+    // add: build a searchable haystack per item (cached on the object)
+    function buildSearchText(it){
+      const rawDate = it.date || "";
+      const nice = it.niceDate || formatNiceDate(it.date);
+      const year = rawDate.slice(0,4);
+      const yearMonth = rawDate.slice(0,7); // YYYY-MM
+
+      const parts = [
+        it.title,
+        it.master,
+        it.production,
+        it.category,
+        it.format,
+        (it.tags || []).join(" "),
+        it.notes,
+        it.cast,
+        rawDate,       // e.g. 2025-09-00
+        year,          // e.g. 2025
+        yearMonth,     // e.g. 2025-09
+        nice           // e.g. Sep 2025 / Jan 5, 2025 / January, 2025
+      ];
+      return parts.filter(Boolean).join(" ").toLowerCase();
+    }
+
+
     async function init(){
-      const res=await fetch(`data/items.json?v=${Date.now()}`,{cache:'no-store'});
-      state.items=await res.json();
-      const cats=Array.from(new Set(state.items.map(it=>it.category).filter(Boolean))).sort(cmpStr);
-      const sel=document.getElementById('category'); cats.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+      // fetch manifest, then hashed items file
+      const man = await fetch('data/manifest.json', { cache:'no-store' }).then(r=>r.json());
+      const res = await fetch(`data/${man.items}`, { cache:'force-cache' });
+      state.items = await res.json();
+
+      // init category options (e.g., video/audio)
+      const cats = Array.from(new Set(state.items.map(it=>it.category).filter(Boolean))).sort(cmpStr);
+      const sel = document.getElementById('category');
+      cats.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+
       filterAndRender();
     }
-    ['q','sort','category'].forEach(id=>{
-      document.getElementById(id).addEventListener('input',filterAndRender);
-      document.getElementById(id).addEventListener('change',filterAndRender);
+
+    // wire events (debounce search input)
+    const debouncedFilter = debounce(filterAndRender, 250);
+    document.getElementById('q').addEventListener('input', debouncedFilter);
+    document.getElementById('sort').addEventListener('change', filterAndRender);
+    document.getElementById('category').addEventListener('change', filterAndRender);
+    document.getElementById('clear').addEventListener('click', ()=>{
+      document.getElementById('q').value='';
+      document.getElementById('sort').value='title_asc';
+      document.getElementById('category').value='';
+      filterAndRender();
     });
-    document.getElementById('clear').addEventListener('click',()=>{
-      document.getElementById('q').value=''; document.getElementById('sort').value='date_desc'; document.getElementById('category').value=''; filterAndRender();
-    });
+
     init();
   </script>
-  <script src="assets/js/site.js"></script>
+
+  <!-- Defer site-wide JS (menu/theme) to avoid blocking render -->
+  <script src="assets/js/site.js" defer></script>
+
+  <!-- No-JS fallback -->
+  <noscript>
+    <style>
+      #sidebar { position: static; transform: none !important; width: auto; height: auto; }
+      .overlay { display: none !important; }
+    </style>
+  </noscript>
 </body>
 </html>

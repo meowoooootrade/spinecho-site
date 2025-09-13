@@ -1,23 +1,47 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Spin Echo</title>
+
+  <!-- Early theme apply: prevent flash between light/dark -->
+  <script>
+    (function () {
+      try {
+        const stored = localStorage.getItem("theme"); // 'light' | 'dark'
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const mode = stored || (prefersDark ? "dark" : "light");
+        document.documentElement.dataset.theme = mode;
+        // optional: initial theme-color for mobile bars
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (!m) { m = document.createElement("meta"); m.name = "theme-color"; document.head.appendChild(m); }
+        m.content = mode === "dark" ? "#1a2233" : "#f5fbfb";
+      } catch (_) {}
+    })();
+  </script>
+
+  <!-- CSS -->
   <link rel="stylesheet" href="assets/css/site.css" />
+  <meta name="color-scheme" content="light dark" />
 </head>
 <body>
   <header class="header">
-    <button class="menu-btn" data-menu aria-label="Menu" aria-expanded="false">☰</button>
+    <button class="menu-btn"
+            data-menu
+            aria-label="Menu"
+            aria-controls="sidebar"
+            aria-expanded="false">☰</button>
     <div>Spin Echo</div>
     <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme" title="Toggle theme">🌙</button>
   </header>
 
   <div class="shell">
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar" role="navigation" aria-label="Primary" aria-hidden="true">
       <h2 class="brand">Spin Echo</h2>
       <p class="status">States: Open (Reply will be delayed due to work)</p>
       <nav class="nav">
+        <a href="./index.html">TOP</a>
         <a href="./list.html">LIST</a>
         <a href="./wants.html">WANTS</a>
         <a href="./contact.html">CONTACT</a>
@@ -25,18 +49,22 @@
     </aside>
 
     <main class="main">
-      <section class="hero">
-        <div>
-          <h1>Hi there. Click the menu options.</h1>
-          <p>
-            I would like to take this opportunity to thank everyone who helped me.
-            Thanks to many thoughtful people I was able to expand my collection!
-          </p>
-        </div>
-      </section>
+      <h1 class="page-title">Welcome</h1>
+      <p class="lede">Thanks to many thoughtful people I was able to expand my collection.</p>
+      <!-- … -->
     </main>
+
   </div>
 
-  <script src="assets/js/site.js"></script>
+  <!-- Defer JS to avoid blocking render -->
+  <script src="assets/js/site.js" defer></script>
+
+  <!-- No-JS fallback: keep sidebar visible and usable -->
+  <noscript>
+    <style>
+      #sidebar { position: static; transform: none !important; width: auto; height: auto; }
+      .overlay { display: none !important; }
+    </style>
+  </noscript>
 </body>
 </html>

@@ -1,79 +1,97 @@
+// assets/js/site.js
 document.addEventListener("DOMContentLoaded", () => {
+  const root    = document.documentElement;
   const menuBtn = document.querySelector("[data-menu]");
-  const sidebar = document.querySelector(".sidebar");
-  if (!menuBtn || !sidebar) return;
+  const sidebar = document.getElementById("sidebar") || document.querySelector(".sidebar");
+  const themeBtn = document.getElementById("theme-toggle");
 
-  // 背景オーバーレイ
-  const overlay = document.createElement("div");
-  overlay.className = "overlay";
-  document.body.appendChild(overlay);
+  // --- overlay (create once) ---
+  let overlay = document.querySelector(".overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.className = "overlay";
+    document.body.appendChild(overlay);
+  }
 
-  const open = () => {
+  // --- aria helpers ---
+  const setAria = (open) => {
+    if (menuBtn) menuBtn.setAttribute("aria-expanded", String(open));
+    if (sidebar) {
+      sidebar.setAttribute("aria-hidden", String(!open));
+      if (sidebar.id && menuBtn) menuBtn.setAttribute("aria-controls", sidebar.id);
+    }
+  };
+
+  const lockScroll = (on) => {
+    if (on) {
+      root.classList.add("nav-open");
+      document.body.style.overflow = "hidden";
+    } else {
+      root.classList.remove("nav-open");
+      document.body.style.overflow = "";
+    }
+  };
+
+  // --- nav open/close ---
+  const openNav = () => {
+    if (!sidebar) return;
     sidebar.classList.add("open");
     overlay.classList.add("is-show");
-    menuBtn.setAttribute("aria-expanded", "true");
-    document.documentElement.classList.add("nav-open");
+    setAria(true);
+    lockScroll(true);
   };
-  const close = () => {
+
+  const closeNav = () => {
+    if (!sidebar) return;
     sidebar.classList.remove("open");
     overlay.classList.remove("is-show");
-    menuBtn.setAttribute("aria-expanded", "false");
-    document.documentElement.classList.remove("nav-open");
+    setAria(false);
+    lockScroll(false);
   };
-  const toggle = () => (sidebar.classList.contains("open") ? close() : open());
 
-  menuBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggle();
-  });
-  overlay.addEventListener("click", close);
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") close();
-  });
+  const toggleNav = () => (sidebar?.classList.contains("open") ? closeNav() : openNav());
 
-  // === Theme toggle ===
-  (function(){
-    const root = document.documentElement;
-    const btn  = document.querySelector("#theme-toggle");
+  // --- events ---
+  if (menuBtn) {
+    menuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleNav();
+    });
+  }
+  overlay.addEventListener("click", closeNav);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
 
-    // 保存されたテーマ or OS設定を初期値にする
-    const stored = localStorage.getItem("theme"); // 'light' | 'dark' | null
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial = stored || (prefersDark ? "dark" : "light");
-
-    applyTheme(initial);
-
-    // クリックで切替
-    if (btn) {
-      btn.addEventListener("click", () => {
-        const next = root.dataset.theme === "dark" ? "light" : "dark";
-        applyTheme(next);
-        localStorage.setItem("theme", next);
-      });
-    }
-
-    function applyTheme(mode){
-      if (mode === "dark") {
-        root.dataset.theme = "dark";
-        if (btn) btn.textContent = "☀️";
-        setThemeColor("#0b1220");
-      } else {
-        root.dataset.theme = "light";
-        if (btn) btn.textContent = "🌙";
-        setThemeColor("#f5fbfb");
-      }
-    }
-
-    // アドレスバー色(モバイル)も合わせる
-    function setThemeColor(color){
+  // --- theme toggle (persist + theme-color sync) ---
+  (function initTheme(){
+    const apply = (mode) => {
+      root.dataset.theme = mode;
+      if (themeBtn) themeBtn.textContent = (mode === "dark") ? "☀️" : "🌙";
       let meta = document.querySelector('meta[name="theme-color"]');
       if (!meta) {
         meta = document.createElement("meta");
-        meta.setAttribute("name", "theme-color");
+        meta.name = "theme-color";
         document.head.appendChild(meta);
       }
-      meta.setAttribute("content", color);
+      meta.content = (mode === "dark") ? "#1a2233" : "#f5fbfb";
+    };
+
+    // initial (head script may set it already; this resyncs the button label)
+    const stored = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initial = root.dataset.theme || stored || (prefersDark ? "dark" : "light");
+    apply(initial);
+
+    if (themeBtn) {
+      themeBtn.addEventListener("click", () => {
+        const next = root.dataset.theme === "dark" ? "light" : "dark";
+        apply(next);
+        localStorage.setItem("theme", next);
+      });
     }
   })();
 
+  // --- reduce motion support ---
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.body.classList.add("reduced-motion");
+  }
 });
