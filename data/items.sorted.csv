@@ -1,4 +1,4 @@
 id,title,date,category,tags,url,notes
-1,Sample A,2025-09-00,video,cats;budapest,https://example.com/a,memo
-3,Sample C,2025-01-05,video,cats,https://example.com/c,
-2,Sample B,2024-12-20,article,analysis,https://example.com/b,memo2
+2,Sample B,2025-08-20,,,,
+3,Sample C,2025-01-05,,,https://example.com/c,
+1,CATS,2025-09-00,,,https://example.com/a,

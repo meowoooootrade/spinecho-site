@@ -1,36 +1,29 @@
 [
   {
-    "id": "1",
-    "title": "Sample A",
-    "date": "2025-09-00",
-    "category": "video",
-    "tags": [
-      "cats",
-      "budapest"
-    ],
-    "url": "https://example.com/a",
-    "notes": "memo"
+    "id": "2",
+    "title": "Sample B",
+    "date": "2025-08-20",
+    "category": null,
+    "tags": [],
+    "url": "",
+    "notes": null
   },
   {
     "id": "3",
     "title": "Sample C",
     "date": "2025-01-05",
-    "category": "video",
-    "tags": [
-      "cats"
-    ],
+    "category": null,
+    "tags": [],
     "url": "https://example.com/c",
-    "notes": ""
+    "notes": null
   },
   {
-    "id": "2",
-    "title": "Sample B",
-    "date": "2024-12-20",
-    "category": "article",
-    "tags": [
-      "analysis"
-    ],
-    "url": "https://example.com/b",
-    "notes": "memo2"
+    "id": "1",
+    "title": "CATS",
+    "date": "2025-09-00",
+    "category": null,
+    "tags": [],
+    "url": "https://example.com/a",
+    "notes": null
   }
 ]
