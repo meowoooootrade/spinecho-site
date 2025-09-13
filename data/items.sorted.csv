@@ -1,4 +1,5 @@
-id,title,date,category,tags,url,notes
-2,Sample B,2025-08-20,,,,
-3,Sample C,2025-01-05,,,https://example.com/c,
-1,CATS,2025-09-00,,,https://example.com/a,
+id,title,date,master,production,category,cast,notes,format,tags,url,niceDate
+1,CATS,2025-09-00,Master A,London,video,Alice;  Bob,Opening night recording.,Blu-ray,premiere; 8k,https://example.com/a,"September, 2025"
+2,Sample B,2025-08-20,Master B,Los,video,Carol,Matinee performance.,DVD,,,"Aug 20, 2025"
+3,Sample C,2025-01-05,TV,Online,video,Dave;  Eve;  Frank,TV broadcast.,Digital,remaster; tv-rip,https://example.com/c,"Jan 5, 2025"
+4,Audio Sample,2024-12-01,Master X,NY,audio,Alice,Live audio.,FLAC,soundboard; lossless,https://example.com/audio,"Dec 1, 2024"

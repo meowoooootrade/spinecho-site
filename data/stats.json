@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "count": 4,
+  "latest": "2025-09-00",
+  "categories": {
+    "video": 3,
+    "audio": 1
+  },
+  "uniqueTags": 6
+}
