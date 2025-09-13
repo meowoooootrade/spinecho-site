@@ -10,6 +10,7 @@
   <header class="header">
     <button class="menu-btn" data-menu aria-label="Menu">☰</button>
     <div>Spin Echo</div>
+    <button id="theme-toggle" class="theme-btn" aria-label="Toggle theme" title="Toggle theme">🌙</button>
   </header>
 
   <div class="shell">
@@ -62,7 +63,50 @@
         const h=document.createElement('h3'); h.className='title';
         if(it.url){ const a=document.createElement('a'); a.href=it.url; a.target='_blank'; a.rel='noopener'; a.textContent=it.title||'(no title)'; h.appendChild(a); }
         else { h.textContent=it.title||'(no title)'; }
-        const meta=document.createElement('div'); meta.className='meta'; meta.textContent=[it.date,it.category].filter(Boolean).join(' · ');
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+
+      let niceDate = "";
+      if (it.date) {
+        const parts = it.date.split("-"); // ["2025","01","00"] など
+        const y = parts[0];
+        const m = parts[1] || "00";
+        const d = parts[2] || "00";
+
+        if (m === "00") {
+          // 年だけ
+          niceDate = y;
+        } else if (d === "00") {
+          // 月まで
+          // 月番号→名前
+          const monthNames = [
+            "January","February","March","April","May","June",
+            "July","August","September","October","November","December"
+          ];
+          const mi = parseInt(m,10)-1;
+          if (mi>=0 && mi<12) {
+            niceDate = `${monthNames[mi]}, ${y}`;
+          } else {
+            niceDate = `${y}`; // 万一無効なら年だけ
+          }
+        } else {
+          // 通常の日付
+          const dObj = new Date(`${y}-${m}-${d}`);
+          if (!isNaN(dObj)) {
+            niceDate = dObj.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric"
+            });
+          } else {
+            niceDate = it.date; // fallback
+          }
+        }
+      }
+
+        meta.textContent = [niceDate, it.category].filter(Boolean).join(" · ");
+
         const tags=document.createElement('div'); tags.className='tags';
         (it.tags||[]).forEach(t=>{ const s=document.createElement('span'); s.className='tag'; s.textContent=t; tags.appendChild(s); });
         const notes=document.createElement('div'); notes.textContent=it.notes||'';

@@ -56,3 +56,325 @@ input, select, button { padding: 6px 8px; }
   .header { justify-content: center; }
   .header .menu-btn { display:block; }
 }
+
+/* ==== ハンバーガー開閉を画面幅に関係なく有効化 ==== */
+
+/* ヘッダーとボタン（ボタンを常に押せるように最前面） */
+.header { position: sticky; top: 0; z-index: 2000; }
+.menu-btn {
+  position: absolute; left: 12px; top: 12px;
+  background: transparent; border: 0; font-size: 24px; cursor: pointer;
+  z-index: 2001;
+}
+
+/* サイドバーは display:none にせず transform で隠す（全幅共通） */
+.sidebar {
+  position: fixed; inset: 56px 0 auto 0;          /* ヘッダー高56pxぶん下げる */
+  height: calc(100vh - 56px);
+  transform: translateX(-100%);
+  transition: transform .25s ease;
+  z-index: 30;
+  /* 既存の見た目を踏襲 */
+  background: #eef7f7; border-right: 1px solid #e0eded; padding: 24px;
+}
+.sidebar.open { transform: translateX(0); }
+
+/* 本文が前面に被ってクリックを奪わないよう一段下げる */
+.shell, .main, .hero { position: relative; z-index: 1; }
+
+/* （任意）PCで左に空きカラムが出るのを避けたい場合は、
+   デスクトップでも1カラム化する */
+@media (min-width: 961px) {
+  .shell { grid-template-columns: 1fr; }
+}
+
+
+
+/* ===== Polished list view (drop-in) ===== */
+:root{
+  --bg: #f5fbfb;
+  --panel: #ffffff;
+  --line: #e7efef;
+  --text: #0f172a;          /* slate-900 */
+  --muted: #64748b;         /* slate-500 */
+  --brand: #2563eb;         /* blue-600 */
+  --brand-ink: #1e3a8a;     /* blue-800 */
+  --chip-bg: #eef2ff;       /* indigo-50 */
+  --chip-border: #c7d2fe;   /* indigo-200 */
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(2,6,23,.06), 0 8px 24px rgba(2,6,23,.06);
+}
+
+/* 背景と本文のコントラストを上げる */
+body{ background: var(--bg); color: var(--text); }
+
+/* ヘッダーは淡く、影で浮かせる */
+.header{
+  background: #eaf6f6;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(2,6,23,.03);
+  font-weight: 800;
+}
+
+/* コンテンツに左右余白と最大幅を付ける */
+.main{ padding: 32px 24px !important; }
+.main > *{ max-width: 1100px; margin-left: auto; margin-right: auto; }
+.main h1{ font-size: clamp(28px, 3.5vw, 40px); letter-spacing:.2px; }
+
+/* フィルタ行を整える：高さ・間隔・フォーカス */
+.controls{
+  display:grid; grid-template-columns: 1fr max-content max-content max-content;
+  gap: 12px; align-items: center; margin: 18px 0 22px;
+}
+.controls input, .controls select, .controls button{
+  height: 40px; border: 1px solid var(--line); background: var(--panel);
+  border-radius: 10px; padding: 0 12px; color: var(--text);
+  box-shadow: 0 1px 0 rgba(2,6,23,.02) inset;
+}
+.controls input{ min-width: 260px; }
+.controls button{ font-weight: 600; }
+.controls input:focus, .controls select:focus, .controls button:focus{
+  outline: 2px solid color-mix(in oklab, var(--brand) 30%, white);
+  outline-offset: 1px;
+}
+
+/* グリッドの密度・最小幅を調整 */
+.grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* カード：線を薄く、角丸＋影、ホバーで持ち上げ */
+.card{
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.card:hover{
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(2,6,23,.08), 0 12px 28px rgba(2,6,23,.10);
+  border-color: #dbe7e7;
+}
+
+/* タイトルとメタの階層 */
+.title{ margin: 0 0 6px; font-weight: 800; letter-spacing:.2px; }
+.title a{
+  color: var(--brand);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color .15s ease, border-color .15s ease;
+}
+.title a:hover{ color: var(--brand-ink); border-color: color-mix(in oklab, var(--brand) 40%, transparent); }
+
+.meta{ color: var(--muted); font-size: .95em; margin: 0 0 10px; }
+
+/* タグを“チップ”化 */
+.tags{ display:flex; flex-wrap:wrap; gap: 6px; margin: 8px 0 0; }
+.tag{
+  font-size: .85em; line-height: 1;
+  padding: 6px 10px; border-radius: 999px;
+  background: var(--chip-bg); border: 1px solid var(--chip-border);
+  color: #3730a3; /* indigo-800 */
+}
+
+/* 角丸と境界の一体感を出すため、カード内の余白を調整 */
+.card .title + .meta + .tags{ margin-top: 6px; }
+
+/* 小さめの画面ではフィルタ行を2段に崩す */
+@media (max-width: 800px){
+  .controls{ grid-template-columns: 1fr 1fr; }
+  .controls select:nth-of-type(1){ order:3; }
+  .controls select:nth-of-type(2){ order:4; }
+  .controls button{ order:5; justify-self: start; }
+}
+
+/* ダークモード（任意）
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg: #0b1220;
+    --panel: #0f1829;
+    --line: #1f2a44;
+    --text: #e5eaf5;
+    --muted: #9aa7c7;
+    --brand: #93c5fd;
+    --brand-ink: #bfdbfe;
+    --chip-bg: #141e35;
+    --chip-border: #253659;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.25);
+  }
+  .title a:hover{ border-color: rgba(147,197,253,.4); }
+} */
+
+/* ===== Mobile polish (<=600px) ===== */
+@media (max-width: 600px){
+
+  /* 1) 画面幅をフルに使う：左右余白だけ軽めに */
+  .main{
+    padding: 20px 12px !important;
+  }
+  .main > *{
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* 2) フィルタ行は縦積み・フル幅 */
+  .controls{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin: 12px 0 16px;
+  }
+  .controls input,
+  .controls select,
+  .controls button{
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  /* 3) カードは1カラムに固定、密度を下げすぎない */
+  .grid{
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .card{
+    padding: 12px;
+    border-radius: 12px;
+  }
+  .title{ font-size: 18px; }
+  .meta{ font-size: .9em; }
+  .tags{ gap: 4px; }
+  .tag{ padding: 5px 8px; }
+
+  /* 4) ヘッダー周りのタップ感と被り対策 */
+  .header{ padding: 0 12px; }
+  .menu-btn{
+    left: 12px; top: 8px;
+    width: 40px; height: 40px;
+  }
+}
+
+/* ===== Desktop drawer（画面を覆わない引き出し） ===== */
+@media (min-width: 961px){
+  :root{
+    --drawer-w: 320px;  /* 好みで 280〜360px に調整 */
+    --header-h: 56px;
+  }
+
+  /* サイドバーは左から引き出す。幅固定で全画面を覆わない */
+  .sidebar{
+    position: fixed;
+    top: var(--header-h);
+    left: 0;
+    bottom: 0;
+    width: var(--drawer-w);
+    height: auto;
+    transform: translateX(-100%);        /* 初期は隠す */
+    transition: transform .25s ease;
+    z-index: 30;
+    /* 既存の見た目は維持 */
+    background: #eef7f7; border-right: 1px solid #e0eded; padding: 24px;
+  }
+  .sidebar.open{ transform: translateX(0); }
+
+  /* デスクトップでは背景オーバーレイは不要 */
+  .overlay{ display: none !important; }
+
+  /* レイアウト：メニューが開いたら本文を右へ逃がす */
+  .shell{ grid-template-columns: 1fr; }     /* 左カラムの空帯を消す */
+  .main{ transition: transform .25s ease; }
+  html.nav-open .main{ transform: translateX(var(--drawer-w)); }
+
+  /* ヘッダーとボタンは最前面のまま */
+  .header{ z-index: 2000; }
+  .menu-btn{ z-index: 2001; }
+}
+
+/* ===== Mobile（〜960px）は今まで通り：全幅に被せてOK ===== */
+/* 既存の @media (max-width: 960px) ブロックはそのままでOK */
+
+
+/* ===== THEME TOKENS ===== */
+:root{
+  --bg: #f5fbfb;
+  --panel: #ffffff;
+  --line: #e7efef;
+  --text: #0f172a;
+  --muted: #64748b;
+  --brand: #2563eb;
+  --brand-ink: #1e3a8a;
+  --chip-bg: #eef2ff;
+  --chip-border: #c7d2fe;
+  --shadow: 0 1px 2px rgba(2,6,23,.06), 0 8px 24px rgba(2,6,23,.06);
+}
+
+/* ダークテーマ（data-theme="dark" が付いたとき） */
+:root[data-theme="dark"] {
+  --bg: #1a2233;   /* 明るめのネイビーグレー */
+  --panel: #242c3d; /* カード色も近づける */
+  --line: #2f3a50; 
+  --text: #dbe4f0; /* 白ではなく淡いブルーグレー */
+  --muted: #9aa7c7;
+  --brand: #93c5fd;
+  --brand-ink: #bfdbfe;
+  --chip-bg: #1f2937;  /* タグ背景 */
+  --chip-border: #374151;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 8px 24px rgba(0,0,0,.25);
+}
+
+/* ベース背景と文字色 */
+body{ background: var(--bg); color: var(--text); }
+
+/* 既存の固定色を変数に寄せる（上書き） */
+.header{
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(2,6,23,.03);
+}
+.sidebar{
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+/* ナビ文字色も変数化 */
+.nav a{ color: var(--text); }
+
+/* カード等は既に変数参照済みなのでOK */
+
+.theme-btn{
+  position:absolute; right:12px; top:12px;
+  width: 40px; height: 40px;
+  display:inline-grid; place-items:center;
+  background: transparent; border: 0; cursor: pointer;
+  font-size: 18px; border-radius: 999px;
+}
+.theme-btn:hover{ background: color-mix(in oklab, var(--line) 60%, transparent); }
+
+/* ===== status 色のテーマ対応 ===== */
+:root{
+  --status: #333;   /* ライト時 */
+}
+
+:root[data-theme="dark"]{
+  --status: #ffffff;  /* ダーク時は白 */
+}
+
+/* 既存の .status の色指定を上書き */
+.status{
+  color: var(--status) !important;
+}
+
+/* ===== unify text color with --text ===== */
+.status{
+  color: var(--text) !important;
+}
+.menu-btn{
+  color: var(--text) !important;
+}
+.tag{
+  color: var(--text) !important;
+}
