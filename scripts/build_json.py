@@ -1,5 +1,10 @@
 # tools/build_items.py
-import csv, json, pathlib, re, hashlib
+import csv
+import json
+import pathlib
+import re
+import hashlib
+from typing import Dict, List, Optional, Tuple
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "data" / "items.csv"
@@ -7,14 +12,25 @@ OUT_DIR = ROOT / "data"
 
 SCHEMA_VERSION = 1
 
-# ---------- helpers ----------
+# -------- precompiled regex --------
+TAG_SPLIT_RE = re.compile(r"[;,\n]+")
+DATE_RE = re.compile(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$")
 
-def split_tags(s):
-    import re as _re
-    return [t.strip() for t in _re.split(r"[;,\n,]+", s or "") if t.strip()]
+MONTH_LONG  = ["January","February","March","April","May","June","July","August","September","October","November","December"]
+MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
-def parse_partial_date(iso: str):
-    m = re.match(r"^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?$", (iso or "").strip())
+# Explicit output key order for stable JSON hashing
+OUT_KEYS = [
+    "id", "title", "date", "master", "production", "category",
+    "cast", "notes", "format", "url", "tags",
+    "schemaVersion", "dateKey", "niceDate",
+]
+
+def split_tags(s: Optional[str]) -> List[str]:
+    return [t.strip() for t in TAG_SPLIT_RE.split(s or "") if t.strip()]
+
+def parse_partial_date(iso: str) -> Optional[Tuple[int,int,int]]:
+    m = DATE_RE.match((iso or "").strip())
     if not m:
         return None
     y = int(m.group(1))
@@ -22,31 +38,35 @@ def parse_partial_date(iso: str):
     d = int(m.group(3) or 0)
     return y, mo, d
 
-MONTH_NAMES_LONG  = ["January","February","March","April","May","June","July","August","September","October","November","December"]
-MONTH_NAMES_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-
-def nice_date_en(iso: str):
+def nice_date_en(iso: str) -> str:
     p = parse_partial_date(iso)
-    if not p: return iso
+    if not p:
+        return iso
     y, m, d = p
-    if m == 0:  return f"{y}"
-    if d == 0:  return f"{MONTH_NAMES_LONG[m-1]}, {y}"
-    return f"{MONTH_NAMES_SHORT[m-1]} {d}, {y}"
+    if m == 0:
+        return f"{y}"
+    if d == 0:
+        return f"{MONTH_LONG[m-1]}, {y}"
+    return f"{MONTH_SHORT[m-1]} {d}, {y}"
 
-def date_key_desc(iso: str):
+def date_key_desc(iso: str) -> Tuple[int,int,int]:
     p = parse_partial_date(iso)
-    if not p: return (0,0,0)  # invalid goes last
-    y,m,d = p
-    return (-y,-m,-d)
+    if not p:
+        # invalid dates end up at the bottom when sorting desc
+        return (0, 0, 0)
+    y, m, d = p
+    return (-y, -m, -d)
 
-def truthy(v):
+def truthy(v) -> bool:
     s = str(v or "").strip().lower()
     return s in {"1","true","yes","y","on"}
 
-def normalize_row(r: dict) -> dict:
+def normalize_row(r: Dict[str,str]) -> Dict:
+    # prefer new field names, fallback to legacy
     production = (r.get("production") or r.get("location") or "").strip()
     notes = (r.get("notes") or r.get("description") or "").strip()
-    # category: explicit (video|audio) 優先、なければ legacy boolean から推定
+
+    # category resolution: explicit first, else infer from legacy booleans
     raw_cat = (r.get("category") or "").strip().lower()
     if raw_cat in {"video","audio"}:
         category = raw_cat
@@ -64,7 +84,7 @@ def normalize_row(r: dict) -> dict:
         "date": (r.get("date") or "").strip(),
         "master": (r.get("master") or "").strip(),
         "production": production,
-        "category": category,                          # "video" | "audio" | ""
+        "category": category,
         "cast": cast,
         "notes": notes,
         "format": (r.get("format") or "").strip(),
@@ -72,7 +92,7 @@ def normalize_row(r: dict) -> dict:
         "tags": tags,
     }
 
-def validate(rows):
+def validate(rows: List[Dict]) -> List[str]:
     problems = []
     for i, r in enumerate(rows, 1):
         if not r["title"]:
@@ -83,34 +103,40 @@ def validate(rows):
             problems.append(f"[row {i}] invalid date: {r['date']}")
     return problems
 
-# ---------- main ----------
-
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # load & normalize
-    rows = []
+    rows: List[Dict] = []
     with SRC.open(newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
             rows.append(normalize_row(r))
 
-    # validate
+    # validate (non-fatal)
     probs = validate(rows)
     if probs:
         print("Validation warnings:")
-        for p in probs: print(" -", p)
+        for p in probs:
+            print(" -", p)
 
-    # sort: date desc, title asc
-    rows.sort(key=lambda x: (date_key_desc(x["date"]), x["title"].lower()))
+    # sort: date desc, then title asc
+    rows.sort(key=lambda x: (date_key_desc(x["date"]), (x["title"] or "").lower()))
 
-    # enrich (schemaVersion, dateKey, niceDate)
+    # enrich + build stable-key dicts for hashing/output
+    enriched: List[Dict] = []
     for r in rows:
-        r["schemaVersion"] = SCHEMA_VERSION
-        r["dateKey"] = "|".join(map(str, date_key_desc(r["date"])))  # e.g. "-2025|-9|-1"
-        r["niceDate"] = nice_date_en(r["date"])
+        payload = {
+            **r,
+            "schemaVersion": SCHEMA_VERSION,
+            "dateKey": "|".join(map(str, date_key_desc(r["date"]))),
+            "niceDate": nice_date_en(r["date"]),
+        }
+        # re-pack with OUT_KEYS order so JSON key order is deterministic
+        packed = {k: payload.get(k) for k in OUT_KEYS}
+        enriched.append(packed)
 
-    # hash for cache-busting
-    blob = json.dumps(rows, ensure_ascii=False, separators=(",",":")).encode("utf-8")
+    # hash for cache-busting (stable due to deterministic key order)
+    blob = json.dumps(enriched, ensure_ascii=False, separators=(",",":")).encode("utf-8")
     digest = hashlib.sha1(blob).hexdigest()[:8]
     items_name = f"items.{digest}.json"
     (OUT_DIR / items_name).write_bytes(blob)
@@ -119,37 +145,50 @@ def main():
     manifest = {"items": items_name}
     (OUT_DIR / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-    # indexes
-    by_cat = {}
-    by_tag = {}
-    for r in rows:
-        cid = r.get("id")
-        cat = r.get("category") or "unknown"
-        by_cat.setdefault(cat, []).append(cid)
+    # indexes (sorted keys and IDs for stable diffs)
+    by_cat: Dict[str, List[str]] = {}
+    by_tag: Dict[str, List[str]] = {}
+    for r in enriched:
+        rid = str(r.get("id") or "").strip()
+        cat = (r.get("category") or "unknown").strip() or "unknown"
+        by_cat.setdefault(cat, []).append(rid)
         for t in (r.get("tags") or []):
-            by_tag.setdefault(t, []).append(cid)
+            by_tag.setdefault(t, []).append(rid)
 
-    (OUT_DIR / "index.categories.json").write_text(json.dumps(by_cat, indent=2), encoding="utf-8")
-    (OUT_DIR / "index.tags.json").write_text(json.dumps(by_tag, indent=2), encoding="utf-8")
+    for v in by_cat.values():
+        v.sort()
+    for v in by_tag.values():
+        v.sort()
+
+    # write indexes with sorted keys
+    (OUT_DIR / "index.categories.json").write_text(
+        json.dumps(dict(sorted(by_cat.items())), indent=2),
+        encoding="utf-8"
+    )
+    (OUT_DIR / "index.tags.json").write_text(
+        json.dumps(dict(sorted(by_tag.items())), indent=2),
+        encoding="utf-8"
+    )
 
     # stats
+    latest = next((r["date"] for r in enriched if (r.get("date") or "")), "")
     stats = {
         "schemaVersion": SCHEMA_VERSION,
-        "count": len(rows),
-        "latest": rows[0]["date"] if rows else "",
+        "count": len(enriched),
+        "latest": latest,
         "categories": {k: len(v) for k, v in by_cat.items()},
         "uniqueTags": len(by_tag),
     }
     (OUT_DIR / "stats.json").write_text(json.dumps(stats, indent=2), encoding="utf-8")
 
-    # human-friendly CSV（ソート済み、tagsは;区切りで出力）
+    # human-friendly CSV (sorted, tags as ;-separated)
     fieldnames = ["id","title","date","master","production","category","cast","notes","format","tags","url","niceDate"]
     with (OUT_DIR / "items.sorted.csv").open("w", newline="", encoding="utf-8") as g:
         w = csv.DictWriter(g, fieldnames=fieldnames)
         w.writeheader()
-        for r in rows:
+        for r in enriched:
             w.writerow({
-                **{k: r.get(k, "") for k in fieldnames if k not in {"tags"}},
+                **{k: r.get(k, "") for k in fieldnames if k != "tags"},
                 "tags": "; ".join(r.get("tags", [])),
             })
 
