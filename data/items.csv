@@ -1,5 +1,5 @@
-id,title,date,master,location,cast,video,description,format,url
-1,CATS,2025-09-00,Master A,London,"Alice; Bob",Video,"Opening night recording.",Blu-ray,https://example.com/a
-2,Sample B,2025-08-20,Master B,Osaka,"Carol",false,"Matinee performance.",DVD,
-3,Sample C,2025-01-05,TV Rip,Online,"Dave; Eve; Frank",true,"TV broadcast.",Digital,https://example.com/c
-
+id,title,date,master,production,category,cast,notes,format,tags,url
+1,CATS,2025-09-00,Master A,London,video,"Alice; Bob","Opening night recording.",Blu-ray,"premiere; 4k",https://example.com/a
+2,Sample B,2025-08-20,Master B,Los,video,"Carol","Matinee performance.",DVD,"", 
+3,Sample C,2025-01-05,TV Rip,Online,video,"Dave; Eve; Frank","TV broadcast.",Digital,"remaster; tv-rip",https://example.com/c
+4,Audio Sample,2024-12-01,Master X,NY,audio,"Alice","Live audio.",FLAC,"soundboard; lossless",https://example.com/audio
