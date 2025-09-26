@@ -7,7 +7,7 @@ import hashlib
 from typing import Dict, List, Optional, Tuple
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SRC = ROOT / "data" / "items.csv"
+SRC = ROOT / "data" / "encora.csv"
 OUT_DIR = ROOT / "data"
 
 SCHEMA_VERSION = 1
@@ -52,13 +52,13 @@ def nice_date_en(iso: str) -> str:
         return f"{MONTH_LONG[m-1]}, {y}"
     return f"{MONTH_SHORT[m-1]} {d}, {y}"
 
-def date_key_desc(iso: str) -> Tuple[int,int,int]:
+def date_key_asc(iso: str) -> Tuple[int,int,int]:
     p = parse_partial_date(iso)
     if not p:
         # invalid/empty dates go to the bottom for DESC
-        return (0, 0, 0)
+        return (9999, 99, 99)
     y, m, d = p
-    return (-y, -m, -d)
+    return (y, m, d)
 
 def truthy(v) -> bool:
     s = str(v or "").strip().lower()
@@ -113,6 +113,12 @@ def validate(rows: List[Dict]) -> List[str]:
             problems.append(f"[row {i}] invalid date: {r['date']}")
     return problems
 
+def title_sort_key(title: Optional[str]) -> str:
+    s = (title or "").strip()
+    s = re.sub(r"^[\W_]+", "", s, flags=re.UNICODE)
+    s = re.sub(r"^(the|a|an)\s+", "", s, flags=re.IGNORECASE)
+    return s.lower()
+
 # ---------- main ----------
 
 def main():
@@ -132,7 +138,7 @@ def main():
             print(" -", p)
 
     # sort: date DESC, then title ASC
-    rows.sort(key=lambda x: (date_key_desc(x["date"]), (x["title"] or "").lower()))
+    rows.sort(key=lambda x: (title_sort_key(x["title"]), date_key_asc(x["date"])))
 
     # enrich and repack to deterministic key order
     enriched: List[Dict] = []
@@ -140,7 +146,7 @@ def main():
         payload = {
             **r,
             "schemaVersion": SCHEMA_VERSION,
-            "dateKey": "|".join(map(str, date_key_desc(r["date"]))),  # e.g. "-2025|-9|-1"
+            "dateKey": "|".join(map(str, date_key_asc(r["date"]))),  # e.g. "-2025|-9|-1"
             "niceDate": nice_date_en(r["date"]),
         }
         packed = {k: payload.get(k) for k in OUT_KEYS}
