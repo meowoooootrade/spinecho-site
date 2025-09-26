@@ -62,15 +62,13 @@
   </div>
 
   <script>
-    // ---- utilities ----
+    // -------- utilities --------
     const state = { items: [], filtered: [] };
     const lower = s => (s || "").toString().toLowerCase();
     const cmpStr = (a,b) => (a||"").localeCompare(b||"", 'en');
-
-    // Debounce utility
     const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
 
-    // Format partial ISO date strings into human-friendly English
+    // Human-friendly date formatting for partial ISO strings
     function formatNiceDate(iso){
       if (!iso) return "";
       const parts = iso.split("-");
@@ -87,7 +85,7 @@
       return isNaN(obj) ? iso : obj.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
     }
 
-    // Sorting that keeps date as ISO-like string (DESC/ASC)
+    // Sorting: title asc/desc, date asc/desc (fallbacks chained)
     function applySort(items, mode) {
       const a = items.slice();
       const cmpTitleAsc  = (x,y) => cmpStr(x.title || '', y.title || '');
@@ -95,14 +93,17 @@
       const cmpDateAsc   = (x,y) => (x.date || '').localeCompare(y.date || '');
       const cmpDateDesc  = (x,y) => (y.date || '').localeCompare(x.date || '');
 
-      if (mode === 'title_asc')  a.sort((x,y) => cmpTitleAsc(x,y)  || cmpDateAsc(x,y));
-      else if (mode === 'title_desc') a.sort((x,y) => cmpTitleDesc(x,y) || cmpDateAsc(x,y));
-      else if (mode === 'date_desc')  a.sort((x,y) => cmpDateDesc(x,y)  || cmpTitleAsc(x,y));
-      else if (mode === 'date_asc')   a.sort((x,y) => cmpDateAsc(x,y)   || cmpTitleAsc(x,y));
+      if (mode === 'title_asc')      a.sort((x,y) => cmpTitleAsc(x,y)  || cmpDateAsc(x,y));
+      else if (mode === 'title_desc')a.sort((x,y) => cmpTitleDesc(x,y) || cmpDateAsc(x,y));
+      else if (mode === 'date_desc') a.sort((x,y) => cmpDateDesc(x,y)  || cmpTitleAsc(x,y));
+      else if (mode === 'date_asc')  a.sort((x,y) => cmpDateAsc(x,y)   || cmpTitleAsc(x,y));
       return a;
     }
 
-    // Render cards in chunks to keep UI snappy
+    // Encora URL
+    const encoraUrl = id => `https://encora.it/recordings/${id}`;
+
+    // Render cards (chunked to keep UI responsive)
     function render(items){
       const root = document.getElementById('list');
       root.innerHTML = '';
@@ -112,10 +113,20 @@
         chunk.forEach(it=>{
           const card = document.createElement('div'); card.className = 'card';
 
-          // title
+          // title: link to Encora when encora exists
           const h = document.createElement('h3'); h.className = 'title';
-          h.textContent = it.title || '(no title)';
-  
+          if (it.encora) {
+            const a = document.createElement('a');
+            a.href = encoraUrl(it.encora);
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.textContent = it.title || '(no title)';
+            h.appendChild(a);
+          } else {
+            h.textContent = it.title || '(no title)';
+          }
+          card.appendChild(h);
+
           // production (top row)
           if (it.production) {
             const metaTop = document.createElement('div'); metaTop.className = 'meta';
@@ -127,9 +138,9 @@
           const meta = document.createElement('div'); meta.className = 'meta';
           const niceDate = it.niceDate || formatNiceDate(it.date);
           const rightBits = [niceDate, it.master].filter(Boolean).join(' · ');
-          if (rightBits) meta.textContent = rightBits;
+          if (rightBits) { meta.textContent = rightBits; card.appendChild(meta); }
 
-          // chips: link / format / tags[]
+          // chips: url (as tag) / format / tags[]
           const chips = document.createElement('div'); chips.className = 'tags';
           if (it.url){
             const u = document.createElement('span'); u.className = 'tag';
@@ -143,33 +154,17 @@
             const s = document.createElement('span'); s.className = 'tag';
             s.textContent = t; chips.appendChild(s);
           });
+          if (chips.children.length) card.appendChild(chips);
 
-          // cast (below chips)
-          if (it.cast) {
-            const cast = document.createElement('div'); cast.className = 'desc';
-            cast.textContent = it.cast; chips.after;
-            card.appendChild(chips);
-            card.appendChild(cast);
-          } else if (chips.children.length) {
-            card.appendChild(chips);
-          }
-
-          // notes (below cast)
-          if (it.notes) {
-            const notes = document.createElement('div'); notes.className = 'desc';
-            notes.textContent = it.notes; card.appendChild(notes);
-          }
-
-          // ensure title and meta are at the top
-          card.insertBefore(h, card.firstChild);
-          if (rightBits) card.insertBefore(meta, (card.children[1] || null));
+          // cast / notes
+          if (it.cast)  { const el=document.createElement('div'); el.className='desc'; el.textContent=it.cast;  card.appendChild(el); }
+          if (it.notes) { const el=document.createElement('div'); el.className='desc'; el.textContent=it.notes; card.appendChild(el); }
 
           frag.appendChild(card);
         });
         root.appendChild(frag);
       };
 
-      // progressive paint
       const chunkSize = 40;
       if (items.length <= chunkSize) {
         paint(items);
@@ -180,30 +175,7 @@
       }
     }
 
-    function filterAndRender(){
-      const q    = document.getElementById('q').value;
-      const terms = tokenize(q);                   // <-- multiple terms / phrases
-      const cat  = document.getElementById('category').value;
-      const sort = document.getElementById('sort').value;
-
-      let arr = state.items.filter(it=>{
-        if (cat && (it.category || '') !== cat) return false;
-        if (!terms.length) return true;
-
-        // cache the haystack on first use
-        if (!it._hay) it._hay = buildSearchText(it);
-        const hay = it._hay;
-
-        // AND: all terms must appear (case-insensitive, substring match)
-        return terms.every(t => hay.includes(t));
-      });
-
-      arr = applySort(arr, sort);
-      state.filtered = arr;
-      render(arr);
-    }
-
-    // add: tokenize query into words and phrases (quoted)
+    // Query tokenizer: multiple words and quoted phrases
     function tokenize(q){
       if (!q) return [];
       const out = [];
@@ -213,31 +185,40 @@
       return out;
     }
 
-    // add: build a searchable haystack per item (cached on the object)
+    // Build searchable haystack per item (cached on the object)
     function buildSearchText(it){
       const rawDate = it.date || "";
       const nice = it.niceDate || formatNiceDate(it.date);
       const year = rawDate.slice(0,4);
-      const yearMonth = rawDate.slice(0,7); // YYYY-MM
-
+      const yearMonth = rawDate.slice(0,7);
       const parts = [
-        it.title,
-        it.master,
-        it.production,
-        it.category,
-        it.format,
+        it.title, it.master, it.production, it.category, it.format,
         (it.tags || []).join(" "),
-        it.url || "",
-        it.notes,
-        it.cast,
-        rawDate,       // e.g. 2025-09-00
-        year,          // e.g. 2025
-        yearMonth,     // e.g. 2025-09
-        nice           // e.g. Sep 2025 / Jan 5, 2025 / January, 2025
+        it.url || "", it.encora || "",
+        it.notes, it.cast,
+        rawDate, year, yearMonth, nice
       ];
       return parts.filter(Boolean).join(" ").toLowerCase();
     }
 
+    function filterAndRender(){
+      const q     = document.getElementById('q').value;
+      const terms = tokenize(q);
+      const cat   = document.getElementById('category').value;
+      const sort  = document.getElementById('sort').value;
+
+      let arr = state.items.filter(it=>{
+        if (cat && (it.category || '') !== cat) return false;
+        if (!terms.length) return true;
+        if (!it._hay) it._hay = buildSearchText(it);
+        const hay = it._hay;
+        return terms.every(t => hay.includes(t)); // AND match
+      });
+
+      arr = applySort(arr, sort);
+      state.filtered = arr;
+      render(arr);
+    }
 
     async function init(){
       // fetch manifest, then hashed items file
@@ -253,7 +234,7 @@
       filterAndRender();
     }
 
-    // wire events (debounce search input)
+    // wire events (debounced search)
     const debouncedFilter = debounce(filterAndRender, 250);
     document.getElementById('q').addEventListener('input', debouncedFilter);
     document.getElementById('sort').addEventListener('change', filterAndRender);
@@ -268,10 +249,9 @@
     init();
   </script>
 
-  <!-- Defer site-wide JS (menu/theme) to avoid blocking render -->
+  <!-- Defer site-wide JS (menu/theme) -->
   <script src="assets/js/site.js" defer></script>
 
-  <!-- No-JS fallback -->
   <noscript>
     <style>
       #sidebar { position: static; transform: none !important; width: auto; height: auto; }
