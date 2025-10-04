@@ -7,7 +7,7 @@ import hashlib
 from typing import Dict, List, Optional, Tuple
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SRC = ROOT / "data" / "encora.csv"
+SRC = ROOT / "data" / "items.csv"
 OUT_DIR = ROOT / "data"
 
 SCHEMA_VERSION = 1
@@ -185,6 +185,7 @@ def main():
     (OUT_DIR / "index.tags.json").write_text(
         json.dumps(dict(sorted(by_tag.items())), indent=2), encoding="utf-8"
     )
+
 
     # stats
     latest = next((r["date"] for r in enriched if (r.get("date") or "")), "")
