@@ -202,6 +202,10 @@ a { color: inherit; }
 
 :root[data-theme="dark"] .card .sep{ opacity: 0.35; }
 
+.tag--category{
+  font-weight: 700;
+  border-color: color-mix(in oklab, var(--chip-border) 60%, transparent);
+}
 
 /* ========== Small screens (<=600px) ========== */
 @media (max-width: 600px){

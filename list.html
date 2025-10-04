@@ -85,11 +85,38 @@
       return isNaN(obj) ? iso : obj.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
     }
 
+    function titleSortKey(title) {
+      let s = (title || "").trim();
+
+      s = s.replace(/^[\s"'“”‘’()[\]\-.,!?:;]+/, "");
+
+      s = s.replace(/^&\s*/, "");
+
+      s = s.replace(/^(?:a|an|the|el|la|les|le|los|las|il|lo)\b[\s]+/i, "");
+
+      s = s.replace(/^l['’]\s*/i, "");
+
+      return s.toLowerCase();
+    }
+
     // Sorting: title asc/desc, date asc/desc (fallbacks chained)
     function applySort(items, mode) {
       const a = items.slice();
-      const cmpTitleAsc  = (x,y) => cmpStr(x.title || '', y.title || '');
-      const cmpTitleDesc = (x,y) => cmpStr(y.title || '', x.title || '');
+
+      const cmpTitleAsc  = (x, y) => {
+        const kx = titleSortKey(x.title);
+        const ky = titleSortKey(y.title);
+        const c = kx.localeCompare(ky, 'en');
+        return c !== 0 ? c : (x.title || "").localeCompare(y.title || "", 'en');
+      };
+
+      const cmpTitleDesc = (x, y) => {
+        const kx = titleSortKey(x.title);
+        const ky = titleSortKey(y.title);
+        const c = ky.localeCompare(kx, 'en');
+        return c !== 0 ? c : (y.title || "").localeCompare(x.title || "", 'en');
+      };
+
       const cmpDateAsc   = (x,y) => (x.date || '').localeCompare(y.date || '');
       const cmpDateDesc  = (x,y) => (y.date || '').localeCompare(x.date || '');
 
@@ -142,6 +169,12 @@
 
           // chips: url (as tag) / format / tags[]
           const chips = document.createElement('div'); chips.className = 'tags';
+          if (it.category){
+            const c = document.createElement('span');
+            c.className = 'tag tag--category';
+            c.textContent = it.category;
+            chips.appendChild(c);
+          }
           if (it.url){
             const u = document.createElement('span'); u.className = 'tag';
             u.textContent = it.url; chips.appendChild(u);
