@@ -190,12 +190,16 @@ a { color: inherit; }
   line-height: 1.55;
 }
 
+:root{ --line-strong: #c6d2e0; }
+:root[data-theme="dark"]{ --line-strong: #4a5a78; }
+
 .card .sep{
   border: 0;
-  border-top: 1px solid var(--line);
-  margin: 8px 0;
-  opacity: 0.6;
+  border-top: 2px solid var(--line-strong);
+  margin: 10px 0;
+  opacity: 1;
 }
+
 :root[data-theme="dark"] .card .sep{ opacity: 0.35; }
 
 
