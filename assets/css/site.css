@@ -190,6 +190,15 @@ a { color: inherit; }
   line-height: 1.55;
 }
 
+.card .sep{
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 8px 0;
+  opacity: 0.6;
+}
+:root[data-theme="dark"] .card .sep{ opacity: 0.35; }
+
+
 /* ========== Small screens (<=600px) ========== */
 @media (max-width: 600px){
   .controls{

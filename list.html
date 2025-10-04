@@ -157,8 +157,30 @@
           if (chips.children.length) card.appendChild(chips);
 
           // cast / notes
-          if (it.cast)  { const el=document.createElement('div'); el.className='desc'; el.textContent=it.cast;  card.appendChild(el); }
-          if (it.notes) { const el=document.createElement('div'); el.className='desc'; el.textContent=it.notes; card.appendChild(el); }
+          const hasCast  = !!it.cast;
+          const hasNotes = !!it.notes;
+
+          if (hasCast) {
+            const el = document.createElement('div');
+            el.className = 'desc';
+            el.textContent = it.cast;
+            card.appendChild(el);
+          }
+
+          if (hasCast && hasNotes) {
+            const sep = document.createElement('hr');
+            sep.className = 'sep';
+            sep.setAttribute('role', 'separator');
+            sep.setAttribute('aria-orientation', 'horizontal');
+            card.appendChild(sep);
+          }
+
+          if (hasNotes) {
+            const el = document.createElement('div');
+            el.className = 'desc';
+            el.textContent = it.notes;
+            card.appendChild(el);
+          }
 
           frag.appendChild(card);
         });

@@ -120,6 +120,26 @@ def _norm_status(status: dict) -> str:
         return "s/w"
     return ""
 
+
+from datetime import datetime, timezone
+
+def nft_until_tag_active(nft_date_str: Optional[str]) -> str:
+    if not nft_date_str:
+        return ""
+    try:
+        s = nft_date_str.strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        if dt <= now:
+            return ""
+        mon = dt.strftime("%b")
+        return f"NFT until {mon} {dt.day}, {dt.year}"
+    except Exception:
+        return ""
+
+
 def cast_line(rec: dict) -> str:
     """Format as 'Name (u/s Role)' or 'Name (Role)'. Separate with comma+space."""
     out = []
@@ -134,34 +154,45 @@ def cast_line(rec: dict) -> str:
         out.append(f"{name} ({inside})" if inside else name)
     return ", ".join(out)
 
-def to_row(obj: dict) -> Dict[str,str]:
-    """Map one collection item to our CSV schema."""
+
+def to_row(obj: dict) -> Optional[Dict[str,str]]:
     rec   = obj.get("recording") or {}
     meta  = rec.get("metadata") or {}
     rid   = rec.get("id")
 
-    # notes（CSVのnotes列）は従来どおり：obj.notes と recording.master_notes を統合・整形
+    nft = rec.get("nft") or {}
+    if _coerce_bool(nft.get("nft_forever")) is True:
+        return None
+
     notes_merged = " ".join([
         clean_notes(rec.get("notes")),
         clean_notes(rec.get("master_notes"))
     ]).strip()
 
-    # format は top-level の format を最優先 → 次に recording.format → 最後に release_format
     fmt = (
         (obj.get("format") or "").strip()
         or (rec.get("release_format") or "").strip()
     )
 
-    # tags は top-level notes が null でないときだけ入れる（空文字なら結果的に空）
-    tags_src = obj.get("notes")
-    tags_val = clean_notes(tags_src) if tags_src is not None else ""
+    tags_list = []
+
+    nft_tag = nft_until_tag_active(nft.get("nft_date"))
+    if nft_tag:
+        tags_list.append(nft_tag)
+
+    if obj.get("notes") is not None:
+        note_tag = clean_notes(obj.get("notes"))
+        if note_tag:
+            tags_list.append(note_tag)
+
+    tags_val = " | ".join(tags_list) 
 
     row = {
         "title":       (rec.get("show") or "").strip(),
         "date":        partial_date_from_recording(rec),
         "master":      (rec.get("master") or "").strip(),
-        "production":  (rec.get("tour") or "").strip(),             # tour => production
-        "category":    (meta.get("media_type") or "").strip(),      # video/audio
+        "production":  (rec.get("tour") or "").strip(),
+        "category":    (meta.get("media_type") or "").strip(),
         "cast":        cast_line(rec),
         "notes":       notes_merged,
         "format":      fmt,
@@ -170,6 +201,7 @@ def to_row(obj: dict) -> Dict[str,str]:
         "encora":      str(rid) if rid is not None else "",
     }
     return row
+
 
 def _throttled_get(url: str, token: str, timeout: int, last_ts: List[float]) -> requests.Response:
     """GET with conservative pacing. `last_ts` is a single-element list carrying last request time."""
@@ -266,7 +298,7 @@ def main():
     print(f"Fetched {len(raw_items)} items.")
 
     # Map to rows
-    rows = [to_row(it) for it in raw_items]
+    rows = [r for r in (to_row(it) for it in raw_items) if r is not None]
 
     # Dedupe by encora id
     unique: Dict[str, Dict[str,str]] = {}
